@@ -146,3 +146,44 @@ func Test_subjectRelationManager_GetMemberCountBeforeExpiredAt(t *testing.T) {
 		assert.Equal(t, cnt, int64(1))
 	})
 }
+
+func Test_subjectRelationManager_UpdateExpiredAtWithTx(t *testing.T) {
+	database.RunWithMock(t, func(db *sqlx.DB, mock sqlmock.Sqlmock, t *testing.T) {
+		mock.ExpectBegin()
+		mock.ExpectPrepare(`^UPDATE subject_relation SET policy_expired_at =`)
+		mock.ExpectExec(`^UPDATE subject_relation SET policy_expired_at =`).WithArgs(
+			int64(2), int64(1),
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectCommit()
+
+		tx, err := db.Beginx()
+		assert.NoError(t, err)
+
+		manager := &subjectRelationManager{DB: db}
+		err = manager.UpdateExpiredAtWithTx(tx, []SubjectRelationPKPolicyExpiredAt{
+			{PK: int64(1), PolicyExpiredAt: int64(2)},
+		})
+
+		assert.NoError(t, err, "query from db fail.")
+	})
+}
+
+func Test_subjectRelationManager_BulkCreateWithTx(t *testing.T) {
+	database.RunWithMock(t, func(db *sqlx.DB, mock sqlmock.Sqlmock, t *testing.T) {
+		mock.ExpectBegin()
+		mock.ExpectExec(`^INSERT INTO subject_relation`).WithArgs(
+			int64(2), int64(1), int64(3),
+		).WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectCommit()
+
+		tx, err := db.Beginx()
+		assert.NoError(t, err)
+
+		manager := &subjectRelationManager{DB: db}
+		err = manager.BulkCreateWithTx(tx, []SubjectRelation{
+			{ParentPK: int64(1), SubjectPK: int64(2), PolicyExpiredAt: int64(3)},
+		})
+
+		assert.NoError(t, err, "query from db fail.")
+	})
+}

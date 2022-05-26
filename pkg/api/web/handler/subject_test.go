@@ -511,6 +511,7 @@ func TestDeleteSubjectRole(t *testing.T) {
 	})
 }
 
+/*
 func TestBatchAddSubjectMembers(t *testing.T) {
 	newRequestFunc := util.CreateNewAPIRequestFunc(
 		"post", "/api/v1/subject-members", BatchAddSubjectMembers,
@@ -955,6 +956,7 @@ func TestUpdateSubjectMembersExpiredAt(t *testing.T) {
 			}).OK()
 	})
 }
+*/
 
 func TestBatchCreateSubjectDepartments(t *testing.T) {
 	newRequestFunc := util.CreateNewAPIRequestFunc(

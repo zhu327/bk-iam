@@ -63,17 +63,18 @@ func (mr *MockSubjectServiceMockRecorder) BulkCreateSubjectDepartments(subjectDe
 }
 
 // BulkCreateSubjectMembers mocks base method.
-func (m *MockSubjectService) BulkCreateSubjectMembers(_type, id string, members []types.Subject, policyExpiredAt int64) error {
+func (m *MockSubjectService) BulkCreateSubjectMembers(_type, id string, subjectWithExpiredAts []types.SubjectWithExpiredAt) (map[string]int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BulkCreateSubjectMembers", _type, id, members, policyExpiredAt)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "BulkCreateSubjectMembers", _type, id, subjectWithExpiredAts)
+	ret0, _ := ret[0].(map[string]int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // BulkCreateSubjectMembers indicates an expected call of BulkCreateSubjectMembers.
-func (mr *MockSubjectServiceMockRecorder) BulkCreateSubjectMembers(_type, id, members, policyExpiredAt interface{}) *gomock.Call {
+func (mr *MockSubjectServiceMockRecorder) BulkCreateSubjectMembers(_type, id, subjectWithExpiredAts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreateSubjectMembers", reflect.TypeOf((*MockSubjectService)(nil).BulkCreateSubjectMembers), _type, id, members, policyExpiredAt)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreateSubjectMembers", reflect.TypeOf((*MockSubjectService)(nil).BulkCreateSubjectMembers), _type, id, subjectWithExpiredAts)
 }
 
 // BulkCreateSubjectRoles mocks base method.
@@ -479,15 +480,15 @@ func (mr *MockSubjectServiceMockRecorder) ListSubjectPKByRole(roleType, system i
 }
 
 // UpdateMembersExpiredAt mocks base method.
-func (m *MockSubjectService) UpdateMembersExpiredAt(members []types.SubjectMember) error {
+func (m *MockSubjectService) UpdateMembersExpiredAt(_type, id string, subjectWithExpiredAts []types.SubjectWithExpiredAt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMembersExpiredAt", members)
+	ret := m.ctrl.Call(m, "UpdateMembersExpiredAt", _type, id, subjectWithExpiredAts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMembersExpiredAt indicates an expected call of UpdateMembersExpiredAt.
-func (mr *MockSubjectServiceMockRecorder) UpdateMembersExpiredAt(members interface{}) *gomock.Call {
+func (mr *MockSubjectServiceMockRecorder) UpdateMembersExpiredAt(_type, id, subjectWithExpiredAts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMembersExpiredAt", reflect.TypeOf((*MockSubjectService)(nil).UpdateMembersExpiredAt), members)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMembersExpiredAt", reflect.TypeOf((*MockSubjectService)(nil).UpdateMembersExpiredAt), _type, id, subjectWithExpiredAts)
 }

@@ -42,3 +42,16 @@ type SubjectDepartment struct {
 	SubjectID     string   `json:"id"`
 	DepartmentIDs []string `json:"departments"`
 }
+
+// SubjectPKWithExpiredAt ...
+type SubjectPKWithExpiredAt struct {
+	SubjectPK int64
+	ExpiredAt int64
+}
+
+// SubjectWithExpiredAt ...
+type SubjectWithExpiredAt struct {
+	Type            string
+	ID              string
+	PolicyExpiredAt int64
+}

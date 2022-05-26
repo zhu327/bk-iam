@@ -55,9 +55,9 @@ type SubjectService interface {
 	) ([]types.SubjectMember, error)
 	ListExistSubjectsBeforeExpiredAt(subjects []types.Subject, expiredAt int64) ([]types.Subject, error)
 	ListMember(_type, id string) ([]types.SubjectMember, error)
-	UpdateMembersExpiredAt(members []types.SubjectMember) error
+	UpdateMembersExpiredAt(_type, id string, subjectWithExpiredAts []types.SubjectWithExpiredAt) error
 	BulkDeleteSubjectMembers(_type, id string, members []types.Subject) (map[string]int64, error)
-	BulkCreateSubjectMembers(_type, id string, members []types.Subject, policyExpiredAt int64) error
+	BulkCreateSubjectMembers(_type, id string, subjectWithExpiredAts []types.SubjectWithExpiredAt) (map[string]int64, error)
 
 	// in subject_department.go
 	// Department

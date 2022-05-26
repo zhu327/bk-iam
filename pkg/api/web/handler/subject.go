@@ -11,9 +11,6 @@
 package handler
 
 import (
-	"fmt"
-
-	"github.com/TencentBlueKing/gopkg/collection/set"
 	"github.com/TencentBlueKing/gopkg/errorx"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
@@ -238,6 +235,8 @@ func GetSubjectGroup(c *gin.Context) {
 
 // UpdateSubjectMembersExpiredAt subject关系续期
 func UpdateSubjectMembersExpiredAt(c *gin.Context) {
+	errorWrapf := errorx.NewLayerFunctionErrorWrapf("Handler", "UpdateSubjectMembersExpiredAt")
+
 	var body subjectMemberExpiredAtSerializer
 	if err := c.ShouldBindJSON(&body); err != nil {
 		util.BadRequestErrorJSONResponse(c, util.ValidationErrorMessage(err))
@@ -249,52 +248,30 @@ func UpdateSubjectMembersExpiredAt(c *gin.Context) {
 		return
 	}
 
-	errorWrapf := errorx.NewLayerFunctionErrorWrapf("Handler", "UpdateSubjectMembersExpiredAt")
+	subjects := make([]types.SubjectWithExpiredAt, 0, len(body.Members))
+	for _, m := range body.Members {
+		subjects = append(subjects, types.SubjectWithExpiredAt{
+			Type:            m.Type,
+			ID:              m.ID,
+			PolicyExpiredAt: m.PolicyExpiredAt,
+		})
+	}
 
 	svc := service.NewSubjectService()
-	relations, err := svc.ListMember(body.Type, body.ID)
+	err := svc.UpdateMembersExpiredAt(body.Type, body.ID, subjects)
 	if err != nil {
-		err = errorWrapf(err, "svc.ListMember type=`%s` id=`%s`", body.Type, body.ID)
+		err = errorWrapf(
+			err, "svc.UpdateMembersExpiredAt type=`%s` id=`%s` subjects=`%+v`",
+			body.Type, body.ID, subjects,
+		)
 		util.SystemErrorJSONResponse(c, err)
 		return
 	}
 
-	// 重复和已经存在DB里的不需要
-	memberMap := make(map[string]types.SubjectMember, len(relations))
-	for _, m := range relations {
-		memberMap[fmt.Sprintf("%s:%s", m.Type, m.ID)] = m
-	}
-
-	// 需要更新过期时间的member
-	updateMembers := make([]types.SubjectMember, 0, len(body.Members))
-
-	for _, m := range body.Members {
-		key := fmt.Sprintf("%s:%s", m.Type, m.ID)
-		if oldMember, ok := memberMap[key]; ok {
-			// 如果过期时间大于已有的时间, 则更新过期时间
-			if m.PolicyExpiredAt > oldMember.PolicyExpiredAt {
-				oldMember.PolicyExpiredAt = m.PolicyExpiredAt
-				updateMembers = append(updateMembers, oldMember)
-			}
-		}
-	}
-
-	if len(updateMembers) == 0 {
-		util.SuccessJSONResponse(c, "ok", gin.H{})
-		return
-	}
-
-	// 更新成员过期时间
-	err = svc.UpdateMembersExpiredAt(updateMembers)
-	if err != nil {
-		err = errorWrapf(err,
-			"svc.UpdateMembersExpiredAt members=`%+v`", updateMembers)
-		util.SystemErrorJSONResponse(c, err)
-		return
-	}
+	// TODO 处理缓存清理
 
 	// 清除涉及用户的缓存
-	batchDeleteUpdatedMembersFromCache(updateMembers)
+	// batchDeleteUpdatedMembersFromCache(updateMembers)
 
 	util.SuccessJSONResponse(c, "ok", gin.H{})
 }
@@ -343,91 +320,33 @@ func BatchAddSubjectMembers(c *gin.Context) {
 		return
 	}
 
-	// 查询DB里已有成员
-	svc := service.NewSubjectService()
-	relations, err := svc.ListMember(body.Type, body.ID)
-	if err != nil {
-		err = errorWrapf(err, "svc.ListMember type=`%s` id=`%s`", body.Type, body.ID)
-		util.SystemErrorJSONResponse(c, err)
-		return
-	}
-
-	// 重复和已经存在DB里的不需要
-	memberMap := make(map[string]types.SubjectMember, len(relations))
-	for _, m := range relations {
-		memberMap[fmt.Sprintf("%s:%s", m.Type, m.ID)] = m
-	}
-
-	// 获取实际需要添加的member
-	members := make([]types.Subject, 0, len(body.Members))
-
-	// 需要更新过期时间的member
-	updateMembers := make([]types.SubjectMember, 0, len(body.Members))
-
-	typeCount := map[string]int64{
-		types.UserType:       0,
-		types.DepartmentType: 0,
-	}
-
-	bodyMembers := set.NewStringSet() // 用于去重
-
+	subjects := make([]types.SubjectWithExpiredAt, 0, len(body.Members))
 	for _, m := range body.Members {
-		key := fmt.Sprintf("%s:%s", m.Type, m.ID)
-
-		// 对Body Member参数去重
-		if bodyMembers.Has(key) {
-			continue
-		}
-		bodyMembers.Add(key)
-
-		// member已存在则不再添加
-		if oldMember, ok := memberMap[key]; ok {
-			// 如果过期时间大于已有的时间, 则更新过期时间
-			if body.PolicyExpiredAt > oldMember.PolicyExpiredAt {
-				oldMember.PolicyExpiredAt = body.PolicyExpiredAt
-				updateMembers = append(updateMembers, oldMember)
-			}
-			continue
-		}
-
-		members = append(members, types.Subject{
-			Type: m.Type,
-			ID:   m.ID,
+		subjects = append(subjects, types.SubjectWithExpiredAt{
+			Type:            m.Type,
+			ID:              m.ID,
+			PolicyExpiredAt: body.PolicyExpiredAt,
 		})
-		typeCount[m.Type]++
 	}
 
-	if len(updateMembers) != 0 {
-		// 更新成员过期时间
-		err = svc.UpdateMembersExpiredAt(updateMembers)
-		if err != nil {
-			err = errorWrapf(err, "svc.UpdateMembersExpiredAt members=`%+v`", updateMembers)
-			util.SystemErrorJSONResponse(c, err)
-			return
-		}
-
-		// 清除 更新了过期时间的成员的cache
-		batchDeleteUpdatedMembersFromCache(updateMembers)
-	}
-
-	// 无成员可添加，直接返回
-	if len(members) == 0 {
-		util.SuccessJSONResponse(c, "ok", typeCount)
-		return
-	}
-
-	// 添加成员
-	err = svc.BulkCreateSubjectMembers(body.Type, body.ID, members, body.PolicyExpiredAt)
+	svc := service.NewSubjectService()
+	typeCount, err := svc.BulkCreateSubjectMembers(body.Type, body.ID, subjects)
 	if err != nil {
-		err = errorWrapf(err,
-			"svc.BulkCreateSubjectMembers type=`%s` id=`%s` members=`%+v` policy_expired_at=`%d`",
-			body.Type, body.ID, members, body.PolicyExpiredAt)
+		err = errorWrapf(
+			err, "svc.UpdateMembersExpiredAt type=`%s` id=`%s` subjects=`%+v`",
+			body.Type, body.ID, subjects,
+		)
 		util.SystemErrorJSONResponse(c, err)
 		return
 	}
+
+	// TODO 处理缓存清理
+
+	// 清除 更新了过期时间的成员的cache
+	// batchDeleteUpdatedMembersFromCache(updateMembers)
 
 	// 清除涉及用户的缓存
-	batchDeleteMembersFromCache(body.Members)
+	// batchDeleteMembersFromCache(body.Members)
 	// TODO: 这里可以区分 dept -> group关系变更
 	util.SuccessJSONResponse(c, "ok", typeCount)
 }

@@ -35,18 +35,18 @@ func (m *MockSubjectRelationManager) EXPECT() *MockSubjectRelationManagerMockRec
 	return m.recorder
 }
 
-// BulkCreate mocks base method.
-func (m *MockSubjectRelationManager) BulkCreate(relations []dao.SubjectRelation) error {
+// BulkCreateWithTx mocks base method.
+func (m *MockSubjectRelationManager) BulkCreateWithTx(tx *sqlx.Tx, relations []dao.SubjectRelation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BulkCreate", relations)
+	ret := m.ctrl.Call(m, "BulkCreateWithTx", tx, relations)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// BulkCreate indicates an expected call of BulkCreate.
-func (mr *MockSubjectRelationManagerMockRecorder) BulkCreate(relations interface{}) *gomock.Call {
+// BulkCreateWithTx indicates an expected call of BulkCreateWithTx.
+func (mr *MockSubjectRelationManagerMockRecorder) BulkCreateWithTx(tx, relations interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreate", reflect.TypeOf((*MockSubjectRelationManager)(nil).BulkCreate), relations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreateWithTx", reflect.TypeOf((*MockSubjectRelationManager)(nil).BulkCreateWithTx), tx, relations)
 }
 
 // BulkDeleteByMembersWithTx mocks base method.
@@ -242,16 +242,16 @@ func (mr *MockSubjectRelationManagerMockRecorder) ListRelationBeforeExpiredAt(su
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRelationBeforeExpiredAt", reflect.TypeOf((*MockSubjectRelationManager)(nil).ListRelationBeforeExpiredAt), subjectPK, expiredAt)
 }
 
-// UpdateExpiredAt mocks base method.
-func (m *MockSubjectRelationManager) UpdateExpiredAt(relations []dao.SubjectRelationPKPolicyExpiredAt) error {
+// UpdateExpiredAtWithTx mocks base method.
+func (m *MockSubjectRelationManager) UpdateExpiredAtWithTx(tx *sqlx.Tx, relations []dao.SubjectRelationPKPolicyExpiredAt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateExpiredAt", relations)
+	ret := m.ctrl.Call(m, "UpdateExpiredAtWithTx", tx, relations)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateExpiredAt indicates an expected call of UpdateExpiredAt.
-func (mr *MockSubjectRelationManagerMockRecorder) UpdateExpiredAt(relations interface{}) *gomock.Call {
+// UpdateExpiredAtWithTx indicates an expected call of UpdateExpiredAtWithTx.
+func (mr *MockSubjectRelationManagerMockRecorder) UpdateExpiredAtWithTx(tx, relations interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExpiredAt", reflect.TypeOf((*MockSubjectRelationManager)(nil).UpdateExpiredAt), relations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExpiredAtWithTx", reflect.TypeOf((*MockSubjectRelationManager)(nil).UpdateExpiredAtWithTx), tx, relations)
 }

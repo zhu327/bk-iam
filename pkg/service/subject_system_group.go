@@ -17,9 +17,11 @@ import (
 	"github.com/TencentBlueKing/gopkg/errorx"
 	"github.com/jmoiron/sqlx"
 	jsoniter "github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 
 	"iam/pkg/database"
 	"iam/pkg/database/dao"
+	"iam/pkg/service/types"
 )
 
 // ErrNoPolicies ...
@@ -30,6 +32,62 @@ var (
 
 // RetryCount ...
 const RetryCount = 3
+
+// bulkUpdateSubjectSystemGroup 批量更新subject system group
+func (l *subjectService) bulkUpdateSubjectSystemGroup(tx *sqlx.Tx, parentPK int64, subjects []types.SubjectPKWithExpiredAt) error {
+	errorWrapf := errorx.NewLayerFunctionErrorWrapf(SubjectSVC, "bulkUpdateSubjectSystemGroup")
+
+	systems, err := l.ListGroupAuthSystem(parentPK)
+	if err != nil {
+		return errorWrapf(err, "listGroupAuthSystem parentPK=`%d` fail", parentPK)
+	}
+
+	for _, subject := range subjects {
+		for _, system := range systems {
+
+			err = l.addOrUpdateSubjectSystemGroup(tx, system, subject.SubjectPK, parentPK, subject.ExpiredAt)
+			if err != nil {
+				return errorWrapf(
+					err, "addOrUpdateSubjectSystemGroup systemID=`%s`, subjectPK=`%d`, groupPK=`%d`, expiredAt=`%d` fail",
+					system, subject.SubjectPK, parentPK, subject.ExpiredAt,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func (l *subjectService) bulkDeleteSubjectSystemGroup(tx *sqlx.Tx, parentPK int64, subjectPKs []int64) error {
+	errorWrapf := errorx.NewLayerFunctionErrorWrapf(SubjectSVC, "bulkDeleteSubjectSystemGroup")
+
+	systems, err := l.ListGroupAuthSystem(parentPK)
+	if err != nil {
+		return errorWrapf(err, "listGroupAuthSystem parentPK=`%d` fail", parentPK)
+	}
+
+	for _, subjectPK := range subjectPKs {
+		for _, system := range systems {
+
+			err = l.removeSubjectSystemGroup(tx, system, subjectPK, parentPK)
+			// 如果关系不存在, 说明传入的参数有误, 或者前后端数据不一致, 记录日志
+			if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrNoSubjectSystemGroup) {
+				log.Warningf(
+					"subjectSVC: subject system group not exists system=`%s`, subjectPK=`%d`, groupPK=`%d`",
+					system, subjectPK, parentPK,
+				)
+				continue
+			}
+
+			if err != nil {
+				return errorWrapf(
+					err, "removeSubjectSystemGroup systemID=`%s`, subjectPK=`%d`, groupPK=`%d` fail",
+					system, subjectPK, parentPK, parentPK,
+				)
+			}
+		}
+	}
+	return nil
+}
 
 func (l *subjectService) doUpdateSubjectSystemGroup(
 	tx *sqlx.Tx,

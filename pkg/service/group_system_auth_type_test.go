@@ -87,7 +87,7 @@ var _ = Describe("GroupService", func() {
 
 			created, rows, err := manager.CreateOrUpdateGroupAuthType(nil, "system", int64(1), int64(2))
 			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "need retry")
+			assert.Contains(GinkgoT(), err.Error(), "concurrency conflict")
 			assert.True(GinkgoT(), created)
 			assert.Equal(GinkgoT(), int64(0), rows)
 		})
@@ -171,7 +171,7 @@ var _ = Describe("GroupService", func() {
 
 			created, rows, err := manager.CreateOrUpdateGroupAuthType(nil, "system", int64(1), int64(2))
 			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "need retry")
+			assert.Contains(GinkgoT(), err.Error(), "concurrency conflict")
 			assert.False(GinkgoT(), created)
 			assert.Equal(GinkgoT(), int64(0), rows)
 		})

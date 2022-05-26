@@ -13,15 +13,12 @@ package service
 import (
 	"errors"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 
-	"iam/pkg/database"
 	"iam/pkg/database/dao"
 	"iam/pkg/database/dao/mock"
-	"iam/pkg/service/types"
 )
 
 var _ = Describe("SubjectService", func() {
@@ -548,481 +545,484 @@ var _ = Describe("SubjectService", func() {
 		})
 	})
 
-	Describe("UpdateMembersExpiredAt", func() {
-		var ctl *gomock.Controller
-		var members []types.SubjectMember
-		BeforeEach(func() {
-			ctl = gomock.NewController(GinkgoT())
+	/*
+			Describe("UpdateMembersExpiredAt", func() {
+				var ctl *gomock.Controller
+				var members []types.SubjectMember
+				BeforeEach(func() {
+					ctl = gomock.NewController(GinkgoT())
 
-			members = []types.SubjectMember{
-				{
-					PK: int64(1),
-				},
-			}
-		})
-		AfterEach(func() {
-			ctl.Finish()
-		})
+					members = []types.SubjectMember{
+						{
+							PK: int64(1),
+						},
+					}
+				})
+				AfterEach(func() {
+					ctl.Finish()
+				})
 
-		It("relationManager.UpdateExpiredAt fail", func() {
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().UpdateExpiredAt(gomock.Any()).Return(
-				errors.New("error"),
-			).AnyTimes()
+				It("relationManager.UpdateExpiredAt fail", func() {
+					mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+					mockSubjectRelationService.EXPECT().UpdateExpiredAt(gomock.Any()).Return(
+						errors.New("error"),
+					).AnyTimes()
 
-			manager := &subjectService{
-				relationManager: mockSubjectRelationService,
-			}
+					manager := &subjectService{
+						relationManager: mockSubjectRelationService,
+					}
 
-			err := manager.UpdateMembersExpiredAt(members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "UpdateExpiredAt")
-		})
+					err := manager.UpdateMembersExpiredAt(members)
+					assert.Error(GinkgoT(), err)
+					assert.Contains(GinkgoT(), err.Error(), "UpdateExpiredAt")
+				})
 
-		It("success", func() {
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().UpdateExpiredAt(gomock.Any()).Return(
-				nil,
-			).AnyTimes()
+				It("success", func() {
+					mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+					mockSubjectRelationService.EXPECT().UpdateExpiredAt(gomock.Any()).Return(
+						nil,
+					).AnyTimes()
 
-			manager := &subjectService{
-				relationManager: mockSubjectRelationService,
-			}
+					manager := &subjectService{
+						relationManager: mockSubjectRelationService,
+					}
 
-			err := manager.UpdateMembersExpiredAt(members)
-			assert.NoError(GinkgoT(), err)
-		})
-	})
+					err := manager.UpdateMembersExpiredAt(members)
+					assert.NoError(GinkgoT(), err)
+				})
+			})
 
-	Describe("BulkDeleteSubjectMembers", func() {
-		var ctl *gomock.Controller
-		var members []types.Subject
-		BeforeEach(func() {
-			ctl = gomock.NewController(GinkgoT())
 
-			members = []types.Subject{
-				{
-					Type: types.UserType,
-					ID:   "user",
-				},
-				{
-					Type: types.DepartmentType,
-					ID:   "department",
-				},
-			}
-		})
-		AfterEach(func() {
-			ctl.Finish()
-		})
+		Describe("BulkDeleteSubjectMembers", func() {
+			var ctl *gomock.Controller
+			var members []types.Subject
+			BeforeEach(func() {
+				ctl = gomock.NewController(GinkgoT())
 
-		It("manager.GetPK fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(0), errors.New("error"),
-			).AnyTimes()
+				members = []types.Subject{
+					{
+						Type: types.UserType,
+						ID:   "user",
+					},
+					{
+						Type: types.DepartmentType,
+						ID:   "department",
+					},
+				}
+			})
+			AfterEach(func() {
+				ctl.Finish()
+			})
 
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
+			It("manager.GetPK fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(0), errors.New("error"),
+				).AnyTimes()
 
-			_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "GetPK")
-		})
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
 
-		It("manager.ListByIDs fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
+				_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "GetPK")
+			})
 
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				nil, errors.New("error"),
-			).AnyTimes()
+			It("manager.ListByIDs fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					nil, errors.New("error"),
+				).AnyTimes()
 
-			db, dbMock := database.NewMockSqlxDB()
-			dbMock.ExpectBegin()
-			dbMock.ExpectCommit()
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
 
-			patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
-			defer patches.Reset()
+				db, dbMock := database.NewMockSqlxDB()
+				dbMock.ExpectBegin()
+				dbMock.ExpectCommit()
 
-			_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
-		})
+				patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
+				defer patches.Reset()
 
-		It("relationManager.BulkDeleteByMembersWithTx fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
+				_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
+			})
 
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
+			It("relationManager.BulkDeleteByMembersWithTx fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
-				int64(0), errors.New("error"),
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
 
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
+					int64(0), errors.New("error"),
+				).AnyTimes()
 
-			db, dbMock := database.NewMockSqlxDB()
-			dbMock.ExpectBegin()
-			dbMock.ExpectCommit()
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
 
-			patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
-			defer patches.Reset()
+				db, dbMock := database.NewMockSqlxDB()
+				dbMock.ExpectBegin()
+				dbMock.ExpectCommit()
 
-			_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "BulkDeleteByMembersWithTx")
-		})
+				patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
+				defer patches.Reset()
 
-		It("manager.ListByIDs fail 2", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
+				_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "BulkDeleteByMembersWithTx")
+			})
 
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
+			It("manager.ListByIDs fail 2", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
-				int64(1), nil,
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
 
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				nil, errors.New("error"),
-			).AnyTimes()
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					nil, errors.New("error"),
+				).AnyTimes()
 
-			db, dbMock := database.NewMockSqlxDB()
-			dbMock.ExpectBegin()
-			dbMock.ExpectCommit()
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
 
-			patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
-			defer patches.Reset()
+				db, dbMock := database.NewMockSqlxDB()
+				dbMock.ExpectBegin()
+				dbMock.ExpectCommit()
 
-			_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
-		})
+				patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
+				defer patches.Reset()
 
-		It("relationManager.BulkDeleteByMembersWithTx fail 2", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
+				_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
+			})
 
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
+			It("relationManager.BulkDeleteByMembersWithTx fail 2", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
-				int64(1), nil,
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
 
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				[]dao.Subject{{
-					PK:   int64(3),
-					Type: types.UserType,
-					ID:   "department",
-					Name: "department",
-				}}, nil,
-			).AnyTimes()
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{3}).Return(
-				int64(0), errors.New("error"),
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					[]dao.Subject{{
+						PK:   int64(3),
+						Type: types.UserType,
+						ID:   "department",
+						Name: "department",
+					}}, nil,
+				).AnyTimes()
 
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{3}).Return(
+					int64(0), errors.New("error"),
+				).AnyTimes()
 
-			db, dbMock := database.NewMockSqlxDB()
-			dbMock.ExpectBegin()
-			dbMock.ExpectCommit()
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
 
-			patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
-			defer patches.Reset()
+				db, dbMock := database.NewMockSqlxDB()
+				dbMock.ExpectBegin()
+				dbMock.ExpectCommit()
 
-			_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "BulkDeleteByMembersWithTx")
-		})
+				patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
+				defer patches.Reset()
 
-		It("success", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
+				_, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "BulkDeleteByMembersWithTx")
+			})
 
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
+			It("success", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
-				int64(1), nil,
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
 
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				[]dao.Subject{{
-					PK:   int64(3),
-					Type: types.UserType,
-					ID:   "department",
-					Name: "department",
-				}}, nil,
-			).AnyTimes()
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{2}).Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{3}).Return(
-				int64(1), nil,
-			).AnyTimes()
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					[]dao.Subject{{
+						PK:   int64(3),
+						Type: types.UserType,
+						ID:   "department",
+						Name: "department",
+					}}, nil,
+				).AnyTimes()
 
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
+				mockSubjectRelationService.EXPECT().BulkDeleteByMembersWithTx(gomock.Any(), int64(1), []int64{3}).Return(
+					int64(1), nil,
+				).AnyTimes()
 
-			db, dbMock := database.NewMockSqlxDB()
-			dbMock.ExpectBegin()
-			dbMock.ExpectCommit()
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
 
-			patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
-			defer patches.Reset()
+				db, dbMock := database.NewMockSqlxDB()
+				dbMock.ExpectBegin()
+				dbMock.ExpectCommit()
 
-			typeCount, err := manager.BulkDeleteSubjectMembers("group", "test", members)
-			assert.NoError(GinkgoT(), err)
-			assert.Equal(GinkgoT(), map[string]int64{
-				"user":       1,
-				"department": 1,
-			}, typeCount)
-		})
-	})
+				patches := gomonkey.ApplyFunc(database.GenerateDefaultDBTx, db.Beginx)
+				defer patches.Reset()
 
-	Describe("BulkCreateSubjectMembers", func() {
-		var ctl *gomock.Controller
-		var members []types.Subject
-		BeforeEach(func() {
-			ctl = gomock.NewController(GinkgoT())
-
-			members = []types.Subject{
-				{
-					Type: types.UserType,
-					ID:   "user",
-				},
-				{
-					Type: types.DepartmentType,
-					ID:   "department",
-				},
-			}
-		})
-		AfterEach(func() {
-			ctl.Finish()
+				typeCount, err := manager.BulkDeleteSubjectMembers("group", "test", members)
+				assert.NoError(GinkgoT(), err)
+				assert.Equal(GinkgoT(), map[string]int64{
+					"user":       1,
+					"department": 1,
+				}, typeCount)
+			})
 		})
 
-		It("manager.GetPK fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(0), errors.New("error"),
-			).AnyTimes()
+		Describe("BulkCreateSubjectMembers", func() {
+			var ctl *gomock.Controller
+			var members []types.Subject
+			BeforeEach(func() {
+				ctl = gomock.NewController(GinkgoT())
 
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
+				members = []types.Subject{
+					{
+						Type: types.UserType,
+						ID:   "user",
+					},
+					{
+						Type: types.DepartmentType,
+						ID:   "department",
+					},
+				}
+			})
+			AfterEach(func() {
+				ctl.Finish()
+			})
 
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.Error(GinkgoT(), err)
+			It("manager.GetPK fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(0), errors.New("error"),
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.Error(GinkgoT(), err)
+			})
+
+			It("manager.ListByIDs fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					nil, errors.New("error"),
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
+			})
+
+			It("manager.ListByIDs fail 2", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					nil, errors.New("error"),
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
+			})
+
+			It("member don't exists pk fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					[]dao.Subject{}, nil,
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager: mockSubjectService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "member don't exists pk")
+			})
+
+			It("relationManager.BulkCreate fail", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					[]dao.Subject{{
+						PK:   int64(3),
+						Type: types.DepartmentType,
+						ID:   "department",
+						Name: "department",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkCreate(gomock.Any()).Return(
+					errors.New("error"),
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.Error(GinkgoT(), err)
+				assert.Contains(GinkgoT(), err.Error(), "BulkCreate")
+			})
+
+			It("success", func() {
+				mockSubjectService := mock.NewMockSubjectManager(ctl)
+				mockSubjectService.EXPECT().GetPK("group", "test").Return(
+					int64(1), nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
+					[]dao.Subject{{
+						PK:   int64(2),
+						Type: types.UserType,
+						ID:   "user",
+						Name: "user",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
+					[]dao.Subject{{
+						PK:   int64(3),
+						Type: types.DepartmentType,
+						ID:   "department",
+						Name: "department",
+					}}, nil,
+				).AnyTimes()
+
+				mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
+				mockSubjectRelationService.EXPECT().BulkCreate(gomock.Any()).Return(
+					nil,
+				).AnyTimes()
+
+				manager := &subjectService{
+					manager:         mockSubjectService,
+					relationManager: mockSubjectRelationService,
+				}
+
+				err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
+				assert.NoError(GinkgoT(), err)
+			})
 		})
-
-		It("manager.ListByIDs fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				nil, errors.New("error"),
-			).AnyTimes()
-
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
-
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
-		})
-
-		It("manager.ListByIDs fail 2", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				nil, errors.New("error"),
-			).AnyTimes()
-
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
-
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "ListByIDs")
-		})
-
-		It("member don't exists pk fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				[]dao.Subject{}, nil,
-			).AnyTimes()
-
-			manager := &subjectService{
-				manager: mockSubjectService,
-			}
-
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "member don't exists pk")
-		})
-
-		It("relationManager.BulkCreate fail", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				[]dao.Subject{{
-					PK:   int64(3),
-					Type: types.DepartmentType,
-					ID:   "department",
-					Name: "department",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkCreate(gomock.Any()).Return(
-				errors.New("error"),
-			).AnyTimes()
-
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
-
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.Error(GinkgoT(), err)
-			assert.Contains(GinkgoT(), err.Error(), "BulkCreate")
-		})
-
-		It("success", func() {
-			mockSubjectService := mock.NewMockSubjectManager(ctl)
-			mockSubjectService.EXPECT().GetPK("group", "test").Return(
-				int64(1), nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("user", []string{"user"}).Return(
-				[]dao.Subject{{
-					PK:   int64(2),
-					Type: types.UserType,
-					ID:   "user",
-					Name: "user",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectService.EXPECT().ListByIDs("department", []string{"department"}).Return(
-				[]dao.Subject{{
-					PK:   int64(3),
-					Type: types.DepartmentType,
-					ID:   "department",
-					Name: "department",
-				}}, nil,
-			).AnyTimes()
-
-			mockSubjectRelationService := mock.NewMockSubjectRelationManager(ctl)
-			mockSubjectRelationService.EXPECT().BulkCreate(gomock.Any()).Return(
-				nil,
-			).AnyTimes()
-
-			manager := &subjectService{
-				manager:         mockSubjectService,
-				relationManager: mockSubjectRelationService,
-			}
-
-			err := manager.BulkCreateSubjectMembers("group", "test", members, int64(10))
-			assert.NoError(GinkgoT(), err)
-		})
-	})
+	*/
 })

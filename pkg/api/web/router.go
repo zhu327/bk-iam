@@ -96,11 +96,11 @@ func Register(r *gin.RouterGroup) {
 	// 查询subject的成员列表
 	r.GET("/subject-members", handler.ListSubjectMember)
 	// 批量添加subject成员
-	r.POST("/subject-members", handler.BatchAddSubjectMembers)
+	r.POST("/subject-members", handler.BatchAddSubjectMembers) // TODO 处理 subject_system_member
 	// 批量删除subject成员
-	r.DELETE("/subject-members", handler.DeleteSubjectMembers)
+	r.DELETE("/subject-members", handler.DeleteSubjectMembers) // TODO 处理 subject_system_member
 	// 批量subject成员过期时间
-	r.PUT("/subject-members/expired_at", handler.UpdateSubjectMembersExpiredAt)
+	r.PUT("/subject-members/expired_at", handler.UpdateSubjectMembersExpiredAt) // TODO 处理 subject_system_member
 
 	// 查询小于指定过期时间的成员列表, 批量用户组查询
 	r.GET("/subject-members/query", handler.ListSubjectMemberBeforeExpiredAt)

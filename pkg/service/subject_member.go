@@ -11,8 +11,7 @@
 package service
 
 import (
-	"errors"
-	"time"
+	"fmt"
 
 	"github.com/TencentBlueKing/gopkg/errorx"
 
@@ -138,28 +137,9 @@ func (l *subjectService) ListMember(_type, id string) ([]types.SubjectMember, er
 }
 
 // UpdateMembersExpiredAt ...
-func (l *subjectService) UpdateMembersExpiredAt(members []types.SubjectMember) error {
-	errorWrapf := errorx.NewLayerFunctionErrorWrapf(SubjectSVC, "BulkDeleteSubjectMember")
-
-	relations := make([]dao.SubjectRelationPKPolicyExpiredAt, 0, len(members))
-	for _, m := range members {
-		relations = append(relations, dao.SubjectRelationPKPolicyExpiredAt{
-			PK:              m.PK,
-			PolicyExpiredAt: m.PolicyExpiredAt,
-		})
-	}
-
-	err := l.relationManager.UpdateExpiredAt(relations)
-	if err != nil {
-		err = errorWrapf(err,
-			"relationManager.UpdateExpiredAt relations=`%+v` fail", relations)
-		return err
-	}
-
-	// TODO 更新subject_system_groups表的groups字段
-	// 1. 更新一个subject的group的过期时间
-
-	return nil
+func (l *subjectService) UpdateMembersExpiredAt(_type, id string, subjectWithExpiredAts []types.SubjectWithExpiredAt) error {
+	_, err := l.bulkCreateOrUpdateSubjectMembers(_type, id, subjectWithExpiredAts, false)
+	return err
 }
 
 // BulkDeleteSubjectMembers ...
@@ -172,9 +152,6 @@ func (l *subjectService) BulkDeleteSubjectMembers(_type, id string, members []ty
 		return nil, errorWrapf(err, "manager.GetPK _type=`%s`, id=`%s` fail", _type, id)
 	}
 
-	// 按类型分组
-	userIDs, departmentIDs, _ := groupBySubjectType(members)
-
 	// 使用事务
 	tx, err := database.GenerateDefaultDBTx()
 	defer database.RollBackWithLog(tx)
@@ -183,52 +160,52 @@ func (l *subjectService) BulkDeleteSubjectMembers(_type, id string, members []ty
 		return nil, errorWrapf(err, "define tx error")
 	}
 
+	// 查询dao subject
+	userPKs, departmentPKs, err := l.splitSubjectToPK(members)
+	if err != nil {
+		return nil, errorWrapf(err, "splitSubjectToPK subjects=`%+v` fail", members)
+	}
+
 	typeCount := map[string]int64{
 		types.UserType:       0,
 		types.DepartmentType: 0,
 	}
 
-	var count int64
-	if len(userIDs) != 0 {
-		users, newErr := l.manager.ListByIDs(types.UserType, userIDs)
-		if newErr != nil {
-			return nil, errorWrapf(newErr, "manager.ListByIDs _type=`%s`, ids=`%+v` fail", types.UserType, userIDs)
-		}
-		subjectPKs := make([]int64, 0, len(users))
-		for _, u := range users {
-			subjectPKs = append(subjectPKs, u.PK)
+	// 处理用户的删除
+	if len(userPKs) != 0 {
+		count, err := l.relationManager.BulkDeleteByMembersWithTx(tx, parentPK, userPKs)
+		if err != nil {
+			return nil, errorWrapf(
+				err, "relationManager.BulkDeleteByMembersWithTx parentPK=`%s`, userPKs=`%+v` fail",
+				parentPK, userPKs,
+			)
 		}
 
-		count, err = l.relationManager.BulkDeleteByMembersWithTx(tx, parentPK, subjectPKs)
-		if err != nil {
-			return nil, errorWrapf(err,
-				"relationManager.BulkDeleteByMembersWithTx _type=`%s`, id=`%s`, subjectType=`%s`, subjectIDs=`%+v` fail",
-				_type, id, types.UserType, userIDs)
-		}
 		typeCount[types.UserType] = count
 	}
 
-	if len(departmentIDs) != 0 {
-		departments, newErr := l.manager.ListByIDs(types.DepartmentType, departmentIDs)
-		if newErr != nil {
-			return nil, errorWrapf(newErr, "manager.ListByIDs _type=`%s`, ids=`%+v` fail", types.DepartmentType, departmentIDs)
-		}
-		subjectPKs := make([]int64, 0, len(departments))
-		for _, u := range departments {
-			subjectPKs = append(subjectPKs, u.PK)
-		}
-
-		count, err = l.relationManager.BulkDeleteByMembersWithTx(tx, parentPK, subjectPKs)
+	// 处理部门的删除
+	if len(departmentPKs) != 0 {
+		count, err := l.relationManager.BulkDeleteByMembersWithTx(tx, parentPK, departmentPKs)
 		if err != nil {
 			return nil, errorWrapf(
-				err, "relationManager.BulkDeleteByMembersWithTx _type=`%s`, id=`%s`, subjectType=`%s`, subjectIDs=`%+v` fail",
-				_type, id, types.DepartmentType, departmentIDs)
+				err, "relationManager.BulkDeleteByMembersWithTx parentPK=`%s`, departmentPKs=`%+v` fail",
+				parentPK, departmentPKs,
+			)
 		}
+
 		typeCount[types.DepartmentType] = count
 	}
 
-	// TODO 更新subject_system_groups表的groups字段
-	// 提供subject删除group关系的方法
+	subjectPKs := append(userPKs, departmentPKs...)
+	// 更新subject_system_groups表的groups字段
+	err = l.bulkDeleteSubjectSystemGroup(tx, parentPK, subjectPKs)
+	if err != nil {
+		return nil, errorWrapf(
+			err, "bulkDeleteSubjectSystemGroup parentPK=`%d`, subjectPKs=`%+v` fail",
+			parentPK, subjectPKs,
+		)
+	}
 
 	err = tx.Commit()
 	if err != nil {
@@ -240,65 +217,211 @@ func (l *subjectService) BulkDeleteSubjectMembers(_type, id string, members []ty
 // BulkCreateSubjectMembers ...
 func (l *subjectService) BulkCreateSubjectMembers(
 	_type, id string,
-	members []types.Subject,
-	policyExpiredAt int64,
-) error {
-	errorWrapf := errorx.NewLayerFunctionErrorWrapf(SubjectSVC, "BulkCreateSubjectMembers")
+	subjectWithExpiredAts []types.SubjectWithExpiredAt,
+) (map[string]int64, error) {
+	return l.bulkCreateOrUpdateSubjectMembers(_type, id, subjectWithExpiredAts, true)
+}
+
+// bulkCreateOrUpdateSubjectMembers ...
+func (l *subjectService) bulkCreateOrUpdateSubjectMembers(
+	_type, id string,
+	subjectWithExpiredAts []types.SubjectWithExpiredAt,
+	createIfNotExists bool,
+) (map[string]int64, error) {
+	errorWrapf := errorx.NewLayerFunctionErrorWrapf(SubjectSVC, "bulkCreateOrUpdateSubjectMembers")
+
 	// 查询subject PK
 	parentPK, err := l.manager.GetPK(_type, id)
 	if err != nil {
-		return errorWrapf(err, "manager.GetPK _type=`%s`, id=`%s` fail", _type, id)
+		return nil, errorWrapf(err, "manager.GetPK _type=`%s`, id=`%s` fail", _type, id)
 	}
 
-	// 分组查询members PK
-	memberPKMap := subjectPKMap{}
-	// 按类型分组
-	userIDs, departmentIDs, _ := groupBySubjectType(members)
-
-	if len(userIDs) > 0 {
-		users, newErr := l.manager.ListByIDs(types.UserType, userIDs)
-		if newErr != nil {
-			return errorWrapf(newErr, "manager.ListByIDs _type=`%s`, ids=`%+v` fail", types.UserType, userIDs)
-		}
-		for _, u := range users {
-			memberPKMap.Add(u.Type, u.ID, u.PK)
-		}
-	}
-	if len(departmentIDs) > 0 {
-		departments, newErr := l.manager.ListByIDs(types.DepartmentType, departmentIDs)
-		if newErr != nil {
-			return errorWrapf(newErr, "manager.ListByIDs _type=`%s`, ids=`%+v` fail", types.DepartmentType, departmentIDs)
-		}
-		for _, d := range departments {
-			memberPKMap.Add(d.Type, d.ID, d.PK)
-		}
+	// 查询group已有的成员
+	daoRelationMap, err := l.getDaoRelationMap(parentPK)
+	if err != nil {
+		return nil, errorWrapf(err, "getDaoRelationMap parentPK=`%d` fail", parentPK)
 	}
 
-	now := time.Now()
-	// 组装需要创建的Subject关系
-	relations := make([]dao.SubjectRelation, 0, len(members))
-	for _, m := range members {
-		mPK, ok := memberPKMap.Get(m.Type, m.ID)
-		if !ok {
-			return errorWrapf(errors.New("member don't exists pk"), "memberPKMap type=`%s`, id=`%s` fail",
-				m.Type, m.ID)
+	// 查询subject
+	daoSubjects, err := l.listDaoSubject(subjectWithExpiredAts)
+	if err != nil {
+		return nil, errorWrapf(err, "newMethod subjectWithExpiredAts=`%s` fail", subjectWithExpiredAts)
+	}
+
+	subjectExpiredAtMap := genSubjectExpiredAtMap(subjectWithExpiredAts)
+
+	// 用于更新subject relation
+	updateRelations := make([]dao.SubjectRelationPKPolicyExpiredAt, 0, len(subjectWithExpiredAts))
+
+	// 用于创建的subject relation
+	createRelations := make([]dao.SubjectRelation, 0, len(subjectWithExpiredAts))
+
+	// 用于更新subject system group
+	subjectPKWithExpiredAts := make([]types.SubjectPKWithExpiredAt, 0, len(subjectWithExpiredAts))
+
+	// 创建的成员数量
+	typeCount := map[string]int64{
+		types.UserType:       0,
+		types.DepartmentType: 0,
+	}
+
+	// 生成需要更新的数据
+	for _, s := range daoSubjects {
+		key := fmt.Sprintf("%s:%s", s.Type, s.ID)
+
+		daoRelation, ok := daoRelationMap[s.PK]
+		if ok && daoRelation.PolicyExpiredAt < subjectExpiredAtMap[key] {
+			updateRelations = append(updateRelations, dao.SubjectRelationPKPolicyExpiredAt{
+				PK:              daoRelation.PK,
+				PolicyExpiredAt: subjectExpiredAtMap[key],
+			})
+
+			subjectPKWithExpiredAts = append(subjectPKWithExpiredAts, types.SubjectPKWithExpiredAt{
+				SubjectPK: s.PK,
+				ExpiredAt: subjectExpiredAtMap[key],
+			})
+		} else if createIfNotExists && !ok {
+			createRelations = append(createRelations, dao.SubjectRelation{
+				SubjectPK:       s.PK,
+				ParentPK:        parentPK,
+				PolicyExpiredAt: subjectExpiredAtMap[key],
+			})
+
+			subjectPKWithExpiredAts = append(subjectPKWithExpiredAts, types.SubjectPKWithExpiredAt{
+				SubjectPK: s.PK,
+				ExpiredAt: subjectExpiredAtMap[key],
+			})
+
+			switch s.Type {
+			case types.UserType:
+				typeCount[types.UserType]++
+			case types.DepartmentType:
+				typeCount[types.DepartmentType]++
+			}
 		}
-		relations = append(relations, dao.SubjectRelation{
-			SubjectPK:       mPK,
-			ParentPK:        parentPK,
-			PolicyExpiredAt: policyExpiredAt,
-			CreateAt:        now,
+	}
+
+	// 使用事务
+	tx, err := database.GenerateDefaultDBTx()
+	defer database.RollBackWithLog(tx)
+
+	if err != nil {
+		return nil, errorWrapf(err, "define tx error")
+	}
+
+	// 更新subject relation
+	err = l.relationManager.UpdateExpiredAtWithTx(tx, updateRelations)
+	if err != nil {
+		return nil, errorWrapf(err,
+			"relationManager.UpdateExpiredAt relations=`%+v` fail", updateRelations)
+	}
+
+	if createIfNotExists && len(createRelations) != 0 {
+		// 创建subject relation
+		err = l.relationManager.BulkCreateWithTx(tx, createRelations)
+		if err != nil {
+			return nil, errorWrapf(err, "relationManager.BulkCreateWithTx relations=`%+v` fail", createRelations)
+		}
+	}
+
+	// 更新subject system group
+	err = l.bulkUpdateSubjectSystemGroup(tx, parentPK, subjectPKWithExpiredAts)
+	if err != nil {
+		return nil, errorWrapf(
+			err, "bulkUpdateSubjectSystemGroup parentPK=`%d`, subjectPKWithExpiredAts=`%+v` fail",
+			parentPK, subjectPKWithExpiredAts,
+		)
+	}
+
+	return typeCount, nil
+}
+
+func genSubjectExpiredAtMap(subjectWithExpiredAts []types.SubjectWithExpiredAt) map[string]int64 {
+	subjectExpiredAt := make(map[string]int64, len(subjectWithExpiredAts))
+	for _, s := range subjectWithExpiredAts {
+		subjectExpiredAt[fmt.Sprintf("%s:%s", s.Type, s.ID)] = s.PolicyExpiredAt
+	}
+	return subjectExpiredAt
+}
+
+func (l *subjectService) listDaoSubject(subjectWithExpiredAts []types.SubjectWithExpiredAt) ([]dao.Subject, error) {
+	subjects := make([]types.Subject, 0, len(subjectWithExpiredAts))
+	for _, s := range subjectWithExpiredAts {
+		subjects = append(subjects, types.Subject{
+			Type: s.Type,
+			ID:   s.ID,
 		})
 	}
 
-	err = l.relationManager.BulkCreate(relations)
+	users, departments, err := l.splitSubject(subjects)
 	if err != nil {
-		return errorWrapf(err, "relationManager.BulkCreate relations=`%+v` fail", relations)
+		return nil, err
+	}
+	return append(users, departments...), nil
+}
+
+func (l *subjectService) getDaoRelationMap(parentPK int64) (map[int64]dao.SubjectRelation, error) {
+	daoRelations, err := l.relationManager.ListMember(parentPK)
+	if err != nil {
+		return nil, err
 	}
 
-	// TODO 更新或创建 subject_system_groups 数据, 乐观锁
-	// 向subject增加一个group关系
-	return nil
+	daoRelationMap := make(map[int64]dao.SubjectRelation, len(daoRelations))
+	for _, r := range daoRelations {
+		daoRelationMap[r.SubjectPK] = r
+	}
+	return daoRelationMap, nil
+}
+
+// splitSubject 分离subject to userPKs departmentPKs
+func (l *subjectService) splitSubject(
+	subjects []types.Subject,
+) (users []dao.Subject, departments []dao.Subject, err error) {
+	if len(subjects) == 0 {
+		return nil, nil, nil
+	}
+
+	// 按类型分组
+	userIDs, departmentIDs, _ := groupBySubjectType(subjects)
+
+	// 查询user PK
+	users, err = l.manager.ListByIDs(types.UserType, userIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 查询department PK
+	departments, err = l.manager.ListByIDs(types.DepartmentType, departmentIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return
+}
+
+func (l *subjectService) splitSubjectToPK(
+	subjects []types.Subject,
+) (userPKs []int64, departmentPKs []int64, err error) {
+	if len(subjects) == 0 {
+		return nil, nil, nil
+	}
+
+	users, departments, err := l.splitSubject(subjects)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	userPKs = make([]int64, 0, len(users))
+	for _, u := range users {
+		userPKs = append(userPKs, u.PK)
+	}
+
+	departmentPKs = make([]int64, 0, len(departments))
+	for _, d := range departments {
+		departmentPKs = append(departmentPKs, d.PK)
+	}
+
+	return
 }
 
 // GetMemberCountBeforeExpiredAt ...
